@@ -1,7 +1,6 @@
-import React from 'react';
 import { FiHome, FiPackage, FiShoppingCart, FiUsers, FiShop } from 'react-icons/fi';
 
-export const NavigationIcons = {
+const NavigationIcons = {
   Dashboard: FiHome,
   Products: FiPackage,
   Orders: FiShoppingCart,

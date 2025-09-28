@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiSettings, FiLogOut, FiMenu, FiX, FiBell } from 'react-icons/fi';
-import NavigationIcons from './icons/NavigationIcons';
+import NavigationIcons from './icons/NavigationIcons.js';
 import toast from 'react-hot-toast';
 
 const Layout = ({ children }) => {
