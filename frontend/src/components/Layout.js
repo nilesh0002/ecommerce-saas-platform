@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FiHome, FiPackage, FiShoppingCart, FiUsers, FiSettings, 
-  FiLogOut, FiMenu, FiX, FiBell, FiStore 
+  FiLogOut, FiMenu, FiX, FiBell, FiShop 
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -26,7 +26,7 @@ const Layout = ({ children }) => {
     { name: 'Products', href: '/admin/products', icon: FiPackage },
     { name: 'Orders', href: '/admin/orders', icon: FiShoppingCart },
     { name: 'Users', href: '/admin/users', icon: FiUsers },
-    ...(isSuperAdmin ? [{ name: 'Merchants', href: '/admin/merchants', icon: FiStore }] : []),
+    ...(isSuperAdmin ? [{ name: 'Merchants', href: '/admin/merchants', icon: FiShop }] : []),
   ];
 
   return (
