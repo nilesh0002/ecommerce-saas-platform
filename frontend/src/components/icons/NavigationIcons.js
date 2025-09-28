@@ -1,11 +1,11 @@
-import { FiHome, FiPackage, FiShoppingCart, FiUsers, FiShop } from 'react-icons/fi';
+import { FiHome, FiPackage, FiShoppingCart, FiUsers, FiShoppingBag } from 'react-icons/fi';
 
 const NavigationIcons = {
   Dashboard: FiHome,
   Products: FiPackage,
   Orders: FiShoppingCart,
   Users: FiUsers,
-  Merchants: FiShop
+  Merchants: FiShoppingBag
 };
 
 export default NavigationIcons;
