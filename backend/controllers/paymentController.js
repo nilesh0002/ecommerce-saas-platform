@@ -4,13 +4,28 @@ const { Pool } = require('pg');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  try {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  } catch (error) {
+    console.warn('Warning: Failed to initialize Razorpay:', error.message);
+  }
+} else {
+  console.warn('Warning: Razorpay credentials not configured. Payment features will be disabled.');
+}
 
 // Create Razorpay order
 const createOrder = async (req, res) => {
+  if (!razorpay) {
+    return res.status(503).json({ 
+      error: 'Payment service not configured. Please configure Razorpay credentials.' 
+    });
+  }
+  
   try {
     const { amount, currency = 'INR', receipt } = req.body;
     
