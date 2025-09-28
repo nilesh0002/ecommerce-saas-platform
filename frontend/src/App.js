@@ -9,6 +9,8 @@ import UserManagement from './components/UserManagement';
 import SuperAdminMerchants from './components/SuperAdminMerchants';
 
 function App() {
+  // Log API URL to verify environment variables are working
+  console.log('API URL:', process.env.REACT_APP_API_URL);
   return (
     <Router>
       <div className="App">
