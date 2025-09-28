@@ -3,10 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AdminLogin from './components/AdminLogin';
 import AdminRoute from './components/AdminRoute';
 import AdminDashboard from './components/AdminDashboard';
-import AdminProducts from './components/AdminProducts';
-import AdminOrders from './components/AdminOrders';
-import AdminUsers from './components/AdminUsers';
-import SuperAdminMerchants from './components/SuperAdminMerchants';
+import ProductManagement from './components/ProductManagement';
+import OrderManagement from './components/OrderManagement';
 
 function App() {
   return (
@@ -26,7 +24,7 @@ function App() {
             path="/admin/products" 
             element={
               <AdminRoute>
-                <AdminProducts />
+                <ProductManagement />
               </AdminRoute>
             } 
           />
