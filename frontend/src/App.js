@@ -5,6 +5,8 @@ import AdminRoute from './components/AdminRoute';
 import AdminDashboard from './components/AdminDashboard';
 import ProductManagement from './components/ProductManagement';
 import OrderManagement from './components/OrderManagement';
+import UserManagement from './components/UserManagement';
+import SuperAdminMerchants from './components/SuperAdminMerchants';
 
 function App() {
   return (
@@ -32,7 +34,7 @@ function App() {
             path="/admin/orders" 
             element={
               <AdminRoute>
-                <AdminOrders />
+                <OrderManagement />
               </AdminRoute>
             } 
           />
@@ -40,7 +42,7 @@ function App() {
             path="/admin/users" 
             element={
               <AdminRoute>
-                <AdminUsers />
+                <UserManagement />
               </AdminRoute>
             } 
           />
