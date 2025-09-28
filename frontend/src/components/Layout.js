@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  FiHome, FiPackage, FiShoppingCart, FiUsers, FiSettings, 
-  FiLogOut, FiMenu, FiX, FiBell, FiShop 
-} from 'react-icons/fi';
+import { FiSettings, FiLogOut, FiMenu, FiX, FiBell } from 'react-icons/fi';
+import NavigationIcons from './icons/NavigationIcons';
 import toast from 'react-hot-toast';
 
 const Layout = ({ children }) => {
@@ -22,11 +20,11 @@ const Layout = ({ children }) => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: FiHome },
-    { name: 'Products', href: '/admin/products', icon: FiPackage },
-    { name: 'Orders', href: '/admin/orders', icon: FiShoppingCart },
-    { name: 'Users', href: '/admin/users', icon: FiUsers },
-    ...(isSuperAdmin ? [{ name: 'Merchants', href: '/admin/merchants', icon: FiShop }] : []),
+    { name: 'Dashboard', href: '/admin/dashboard', icon: NavigationIcons.Dashboard },
+    { name: 'Products', href: '/admin/products', icon: NavigationIcons.Products },
+    { name: 'Orders', href: '/admin/orders', icon: NavigationIcons.Orders },
+    { name: 'Users', href: '/admin/users', icon: NavigationIcons.Users },
+    ...(isSuperAdmin ? [{ name: 'Merchants', href: '/admin/merchants', icon: NavigationIcons.Merchants }] : []),
   ];
 
   return (
