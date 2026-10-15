@@ -28,7 +28,7 @@ const schema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
-  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_DSN: z.union([z.string().url(), z.literal('')]).optional(),
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 });
 
