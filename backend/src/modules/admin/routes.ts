@@ -1,0 +1,21 @@
+import { Router } from 'express';
+import { Role } from '@prisma/client';
+import { authenticate, authorize } from '../../middlewares/auth';
+import { asyncHandler } from '../../utils/asyncHandler';
+import * as controller from './controller';
+
+const router = Router();
+router.use(authenticate);
+router.get('/analytics', authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.SUPPORT), asyncHandler(controller.analytics));
+router.get('/customers', authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.SUPPORT), asyncHandler(controller.customers));
+router.get('/orders', authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.SUPPORT), asyncHandler(controller.orders));
+router.get('/coupons', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.coupons));
+router.post('/coupons', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.createCoupon));
+router.patch('/coupons/:id', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.updateCoupon));
+router.delete('/coupons/:id', authorize(Role.SUPER_ADMIN), asyncHandler(controller.deleteCoupon));
+router.get('/banners', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.banners));
+router.post('/banners', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.createBanner));
+router.patch('/banners/:id', authorize(Role.SUPER_ADMIN, Role.MANAGER), asyncHandler(controller.updateBanner));
+router.delete('/banners/:id', authorize(Role.SUPER_ADMIN), asyncHandler(controller.deleteBanner));
+router.get('/reports/export', authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.SUPPORT), asyncHandler(controller.report));
+export default router;

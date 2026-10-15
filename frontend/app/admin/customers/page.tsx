@@ -1,0 +1,4 @@
+'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useQuery } from '@tanstack/react-query'; import { api } from '../../../lib/api'; import { AdminPage, Loading, Table } from '../../../components/AdminShell';
+export default function AdminCustomers() { const q = useQuery({ queryKey: ['admin-customers'], queryFn: () => api<any>('/admin/customers?limit=50') }); return <AdminPage title="Customers">{q.isLoading ? <Loading /> : <Table><thead><tr><th className="p-4">Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Joined</th></tr></thead><tbody>{(q.data?.customers || []).map((c: any) => <tr className="border-t" key={c.id}><td className="p-4">{c.firstName} {c.lastName}</td><td>{c.email}</td><td>{c.phone || '—'}</td><td>{c._count.orders}</td><td>{new Date(c.createdAt).toLocaleDateString()}</td></tr>)}</tbody></Table>}</AdminPage>; }
