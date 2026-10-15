@@ -7,9 +7,14 @@ export const emailQueue = new Queue('email', { connection });
 export const notificationQueue = new Queue('notification', { connection });
 export const lowStockQueue = new Queue('low-stock', { connection });
 export const abandonedCartQueue = new Queue('abandoned-cart', { connection });
+export const pendingOrderCleanupQueue = new Queue('pending-order-cleanup', { connection });
 
 export async function enqueueOrderConfirmation(input: { orderId: string; userId: string }) {
   await emailQueue.add('order-confirmation', input, { jobId: `order-confirmation:${input.orderId}`, removeOnComplete: 100, removeOnFail: 500 });
+}
+
+export async function enqueueOutOfStockPaymentNotice(input: { orderId: string; userId: string }) {
+  await emailQueue.add('out-of-stock-payment', input, { jobId: `out-of-stock-payment:${input.orderId}`, removeOnComplete: 100, removeOnFail: 500 });
 }
 
 export async function enqueueLowStockAlert(input: { variantId: string; quantity: number }) {
@@ -20,6 +25,15 @@ export async function scheduleAbandonedCartReminder(input: { userId: string; car
   await abandonedCartQueue.add('abandoned-cart-reminder', input, {
     delay: 24 * 60 * 60 * 1000,
     jobId: `abandoned-cart:${input.cartId}`,
+    removeOnComplete: 100,
+    removeOnFail: 500,
+  });
+}
+
+export async function schedulePendingOrderCleanup(): Promise<void> {
+  await pendingOrderCleanupQueue.add('cleanup-pending-orders', {}, {
+    repeat: { every: 5 * 60 * 1000 },
+    jobId: 'pending-order-cleanup',
     removeOnComplete: 100,
     removeOnFail: 500,
   });

@@ -5,9 +5,11 @@ import { env } from '../../config/env';
 import { getRazorpay } from '../../config/razorpay';
 import { calculateCheckout } from '../commerce/service';
 import { AppError } from '../../utils/errors';
-import { enqueueLowStockAlert, enqueueOrderConfirmation } from '../../jobs/queues';
+import { enqueueLowStockAlert, enqueueOrderConfirmation, enqueueOutOfStockPaymentNotice } from '../../jobs/queues';
 import { emitOrderCreated, emitOrderStatusUpdated, emitStockUpdated } from '../../sockets';
 import { createInvoicePdf } from '../../utils/invoice';
+import { runWithDuplicateHandling } from '../../utils/prisma';
+import { isCapturedPayment, shouldCancelPendingOrder } from './payment-state';
 
 type CreateOrderInput = {
   addressId: string;
@@ -149,6 +151,7 @@ export async function verifyPayment(userId: string, id: string, input: { razorpa
   if (order.paymentMethod !== PaymentMethod.RAZORPAY || order.razorpayOrderId !== input.razorpayOrderId || !env.RAZORPAY_KEY_SECRET) {
     throw new AppError(400, 'Invalid payment verification request', 'PAYMENT_VERIFICATION_INVALID');
   }
+
   const expected = crypto.createHmac('sha256', env.RAZORPAY_KEY_SECRET).update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`).digest('hex');
   if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(input.razorpaySignature))) {
     throw new AppError(400, 'Invalid payment signature', 'PAYMENT_SIGNATURE_INVALID');
@@ -225,10 +228,11 @@ export function verifyWebhookSignature(rawBody: Buffer, signature: string): void
 }
 
 export async function processWebhook(eventId: string, event: string, payload: Record<string, unknown>) {
-  const existing = await prisma.webhookEvent.findUnique({ where: { provider_eventId: { provider: 'razorpay', eventId } } });
-  if (existing?.processedAt) return { duplicate: true };
-  const eventRecord = existing ?? await prisma.webhookEvent.create({ data: { provider: 'razorpay', eventId, event, payload: payload as Prisma.InputJsonValue } });
-  await prisma.$transaction(async (tx) => {
+  const claimed = await runWithDuplicateHandling(() => prisma.$transaction(async (tx) => {
+      const eventRecord = await tx.webhookEvent.create({
+        data: { provider: 'razorpay', eventId, event, payload: payload as Prisma.InputJsonValue },
+      });
+      let outOfStock: { orderId: string; userId: string; totalPaise: number } | undefined;
     if (event === 'payment.captured') {
       const paymentEntity = (payload.payload as { payment?: { entity?: Record<string, unknown> } })?.payment?.entity;
       const razorpayOrderId = String(paymentEntity?.order_id ?? '');
@@ -236,10 +240,22 @@ export async function processWebhook(eventId: string, event: string, payload: Re
       const order = await tx.order.findFirst({ where: { razorpayOrderId }, include: { items: true } });
       if (!order) throw new AppError(404, 'Order for payment not found', 'ORDER_NOT_FOUND');
       if (order.paymentStatus !== PaymentStatus.PAID) {
-        await deductStock(tx, order.items);
-        await clearCartAndRecordCoupon(tx, order.userId, order.id, order.couponCode);
-        await tx.payment.update({ where: { orderId: order.id }, data: { status: PaymentStatus.PAID, razorpayPaymentId: paymentId, rawData: payload as Prisma.InputJsonValue } });
-        await tx.order.update({ where: { id: order.id }, data: { paymentStatus: PaymentStatus.PAID, status: OrderStatus.CONFIRMED, placedAt: new Date(), statusHistory: { create: { from: order.status, to: OrderStatus.CONFIRMED, note: 'Payment captured by Razorpay webhook' } } } });
+        try {
+          await deductStock(tx, order.items);
+          await clearCartAndRecordCoupon(tx, order.userId, order.id, order.couponCode);
+          await tx.payment.update({ where: { orderId: order.id }, data: { status: PaymentStatus.PAID, razorpayPaymentId: paymentId, rawData: payload as Prisma.InputJsonValue } });
+          await tx.order.update({ where: { id: order.id }, data: { paymentStatus: PaymentStatus.PAID, status: OrderStatus.CONFIRMED, placedAt: new Date(), statusHistory: { create: { from: order.status, to: OrderStatus.CONFIRMED, note: 'Payment captured by Razorpay webhook' } } } });
+        } catch (error) {
+          if (!(error instanceof AppError) || error.code !== 'INSUFFICIENT_STOCK') throw error;
+          const refund = await getRazorpay().payments.refund(paymentId, {
+            amount: order.totalPaise,
+            notes: { reason: 'Order failed because stock was unavailable' },
+          });
+          await tx.payment.update({ where: { orderId: order.id }, data: { status: PaymentStatus.FAILED, razorpayPaymentId: paymentId, rawData: payload as Prisma.InputJsonValue } });
+          await tx.refund.create({ data: { orderId: order.id, razorpayRefundId: refund.id, amountPaise: order.totalPaise, status: PaymentStatus.PENDING, reason: 'Out of stock after payment capture' } });
+          await tx.order.update({ where: { id: order.id }, data: { paymentStatus: PaymentStatus.FAILED, status: OrderStatus.FAILED_OUT_OF_STOCK, statusHistory: { create: { from: order.status, to: OrderStatus.FAILED_OUT_OF_STOCK, note: 'Payment captured after stock was exhausted' } } } });
+          outOfStock = { orderId: order.id, userId: order.userId, totalPaise: order.totalPaise };
+        }
       }
     } else if (event === 'payment.failed') {
       const paymentEntity = (payload.payload as { payment?: { entity?: Record<string, unknown> } })?.payment?.entity;
@@ -257,8 +273,21 @@ export async function processWebhook(eventId: string, event: string, payload: Re
         await tx.order.update({ where: { id: refund.orderId }, data: { paymentStatus: PaymentStatus.REFUNDED } });
       }
     }
-    await tx.webhookEvent.update({ where: { id: eventRecord.id }, data: { processedAt: new Date() } });
-  });
+      await tx.webhookEvent.update({ where: { id: eventRecord.id }, data: { processedAt: new Date() } });
+      return { outOfStock };
+    }));
+  if (claimed.duplicate) return { duplicate: true };
+  const result = claimed.result;
+  if (!result) throw new AppError(500, 'Webhook processing did not return a result', 'WEBHOOK_PROCESSING_FAILED');
+    if (result.outOfStock) {
+      const order = await prisma.order.findUnique({ where: { id: result.outOfStock.orderId }, include: { items: true, user: true } });
+      if (order) {
+        await enqueueOutOfStockPaymentNotice({ orderId: order.id, userId: order.userId });
+        await publishStockUpdates(order.items.map((item) => item.variantId));
+        emitOrderStatusUpdated(order.userId, { orderId: order.id, status: order.status });
+      }
+      return { duplicate: false, outOfStock: true };
+    }
   if (event === 'payment.captured') {
     const paymentEntity = (payload.payload as { payment?: { entity?: Record<string, unknown> } })?.payment?.entity;
     const razorpayOrderId = String(paymentEntity?.order_id ?? '');
@@ -270,6 +299,46 @@ export async function processWebhook(eventId: string, event: string, payload: Re
     }
   }
   return { duplicate: false };
+}
+
+export async function processPendingOrderCleanup(): Promise<number> {
+  const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+  const orders = await prisma.order.findMany({
+    where: { status: OrderStatus.PENDING, paymentMethod: PaymentMethod.RAZORPAY, createdAt: { lt: cutoff } },
+    select: { id: true, razorpayOrderId: true },
+  });
+  let processed = 0;
+  for (const order of orders) {
+    if (!order.razorpayOrderId) continue;
+    const razorpay = getRazorpay();
+    const remoteOrder = await razorpay.orders.fetch(order.razorpayOrderId);
+    const payments = await razorpay.orders.fetchPayments(order.razorpayOrderId);
+    const captured = payments.items?.find((payment: { status?: string }) => payment.status === 'captured');
+    if (isCapturedPayment(remoteOrder.status, captured ? [captured] : [])) {
+      await processWebhook(`cleanup:capture:${order.id}:${captured?.id ?? order.razorpayOrderId}`, 'payment.captured', {
+        event: 'payment.captured',
+        payload: { payment: { entity: { order_id: order.razorpayOrderId, id: captured?.id ?? '' } } },
+      });
+    } else {
+      await prisma.$transaction(async (tx) => {
+        const current = await tx.order.findUnique({ where: { id: order.id }, include: { items: true } });
+        if (!current || !shouldCancelPendingOrder(current.status)) return;
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            status: OrderStatus.CANCELLED,
+            paymentStatus: PaymentStatus.FAILED,
+            statusHistory: { create: { from: OrderStatus.PENDING, to: OrderStatus.CANCELLED, note: 'Unpaid Razorpay order expired' } },
+          },
+        });
+        for (const item of current.items) {
+          await tx.inventory.updateMany({ where: { variantId: item.variantId, reserved: { gte: item.quantity } }, data: { reserved: { decrement: item.quantity } } });
+        }
+      });
+    }
+    processed += 1;
+  }
+  return processed;
 }
 
 export async function refundOrder(orderId: string, amountPaise: number | undefined, reason: string | undefined) {

@@ -1,7 +1,8 @@
 import { Job, Worker } from 'bullmq';
 import { env } from '../config/env';
 import { prisma } from '../config/prisma';
-import { sendOrderConfirmationEmail, sendLowStockAlertEmail, sendAbandonedCartEmail } from '../utils/mailer';
+import { sendOrderConfirmationEmail, sendLowStockAlertEmail, sendAbandonedCartEmail, sendOutOfStockPaymentEmail } from '../utils/mailer';
+import { processPendingOrderCleanup } from '../modules/orders/service';
 
 const connection = { url: env.REDIS_URL };
 
@@ -11,6 +12,10 @@ async function processEmail(job: Job<{ orderId: string; userId: string }>) {
     include: { user: true, items: true },
   });
   if (!order) return;
+  if (job.name === 'out-of-stock-payment') {
+    await sendOutOfStockPaymentEmail(order.user.email, order.id, order.totalPaise);
+    return;
+  }
   await sendOrderConfirmationEmail(order.user.email, order);
 }
 
@@ -28,8 +33,13 @@ async function processAbandonedCart(job: Job<{ userId: string; cartId: string }>
   await sendAbandonedCartEmail(cart.user.email, cart.items.length);
 }
 
+async function processPendingOrders(): Promise<void> {
+  await processPendingOrderCleanup();
+}
+
 export const workers = [
   new Worker('email', processEmail, { connection }),
   new Worker('low-stock', processLowStock, { connection }),
   new Worker('abandoned-cart', processAbandonedCart, { connection }),
+  new Worker('pending-order-cleanup', processPendingOrders, { connection }),
 ];

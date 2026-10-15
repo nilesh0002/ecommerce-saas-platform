@@ -45,6 +45,14 @@ export async function sendOrderConfirmationEmail(email: string, order: OrderEmai
   await sendConfiguredEmail(email, `Order ${order.id} confirmed`, `Your order ${order.id} has been confirmed. Total: INR ${(order.totalPaise / 100).toFixed(2)}.`);
 }
 
+export async function sendOutOfStockPaymentEmail(email: string, orderId: string, totalPaise: number): Promise<void> {
+  await sendConfiguredEmail(
+    email,
+    `Payment refund for order ${orderId}`,
+    `Your payment for order ${orderId} was refunded because the requested stock was no longer available. Refunded amount: INR ${(totalPaise / 100).toFixed(2)}.`,
+  );
+}
+
 export async function sendLowStockAlertEmail(email: string, productName: string, sku: string, quantity: number): Promise<void> {
   await sendConfiguredEmail(email, `Low stock alert: ${sku}`, `${productName} (${sku}) has only ${quantity} units remaining.`);
 }
