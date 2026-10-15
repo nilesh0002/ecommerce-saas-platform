@@ -44,10 +44,11 @@ workspace build or runtime.
 
 ```powershell
 Copy-Item .env.example .env
+Copy-Item frontend/.env.example frontend/.env.local
 npm install
 docker compose up -d postgres redis
 npm run db:generate
-npm run db:migrate --workspace backend -- --name local
+npm run db:migrate -- --name local
 npm run db:seed
 npm run dev
 ```
@@ -56,19 +57,30 @@ The API runs on `http://localhost:5000` and the Next.js app on
 `http://localhost:3000`.
 
 Use [frontend/.env.example](./frontend/.env.example) for client-side
-variables. Never commit `.env` or production credentials.
+variables (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_RAZORPAY_KEY_ID`). Copy it to
+`frontend/.env.local`. Never commit `.env*` or production credentials.
 
 ## Useful commands
 
+Run these from the repository root.
+
 ```powershell
-npm run build
-npm run lint
+npm run dev               # backend + frontend together (concurrently)
+npm run build             # build backend then frontend
+npm run lint              # lint backend and frontend
+npm test                  # run backend unit tests
+npm run test:integration  # run backend integration tests (needs Postgres + Redis)
 npm run typecheck --workspace backend
 npm run typecheck --workspace frontend
-npm test --workspace backend
+npm run db:generate
 npm run db:migrate
 npm run db:seed
+npm start                 # run the compiled backend (after npm run build)
 ```
+
+`npm run test:integration` sets `RUN_INTEGRATION_TESTS=true`; those tests
+create and clean up their own database rows and require the Docker services
+from `docker-compose.yml` to be running.
 
 ## Main API areas
 
