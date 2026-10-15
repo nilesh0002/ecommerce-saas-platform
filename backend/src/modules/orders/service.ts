@@ -5,7 +5,8 @@ import { env } from '../../config/env';
 import { getRazorpay } from '../../config/razorpay';
 import { calculateCheckout } from '../commerce/service';
 import { AppError } from '../../utils/errors';
-import { enqueueLowStockAlert, enqueueOrderConfirmation, enqueueOutOfStockPaymentNotice } from '../../jobs/queues';
+import { enqueueLowStockAlert, enqueueOrderConfirmation, enqueueOutOfStockPaymentNotice, enqueueOutOfStockRefund } from '../../jobs/queues';
+import { logger } from '../../config/logger';
 import { emitOrderCreated, emitOrderStatusUpdated, emitStockUpdated } from '../../sockets';
 import { createInvoicePdf } from '../../utils/invoice';
 import { runWithDuplicateHandling } from '../../utils/prisma';
@@ -232,7 +233,7 @@ export async function processWebhook(eventId: string, event: string, payload: Re
       const eventRecord = await tx.webhookEvent.create({
         data: { provider: 'razorpay', eventId, event, payload: payload as Prisma.InputJsonValue },
       });
-      let outOfStock: { orderId: string; userId: string; totalPaise: number } | undefined;
+      let outOfStock: { orderId: string; userId: string; refundId: string; totalPaise: number } | undefined;
     if (event === 'payment.captured') {
       const paymentEntity = (payload.payload as { payment?: { entity?: Record<string, unknown> } })?.payment?.entity;
       const razorpayOrderId = String(paymentEntity?.order_id ?? '');
@@ -247,14 +248,11 @@ export async function processWebhook(eventId: string, event: string, payload: Re
           await tx.order.update({ where: { id: order.id }, data: { paymentStatus: PaymentStatus.PAID, status: OrderStatus.CONFIRMED, placedAt: new Date(), statusHistory: { create: { from: order.status, to: OrderStatus.CONFIRMED, note: 'Payment captured by Razorpay webhook' } } } });
         } catch (error) {
           if (!(error instanceof AppError) || error.code !== 'INSUFFICIENT_STOCK') throw error;
-          const refund = await getRazorpay().payments.refund(paymentId, {
-            amount: order.totalPaise,
-            notes: { reason: 'Order failed because stock was unavailable' },
-          });
           await tx.payment.update({ where: { orderId: order.id }, data: { status: PaymentStatus.FAILED, razorpayPaymentId: paymentId, rawData: payload as Prisma.InputJsonValue } });
-          await tx.refund.create({ data: { orderId: order.id, razorpayRefundId: refund.id, amountPaise: order.totalPaise, status: PaymentStatus.PENDING, reason: 'Out of stock after payment capture' } });
+          const refund = await tx.refund.findFirst({ where: { orderId: order.id, reason: 'Out of stock after payment capture', status: { in: [PaymentStatus.PENDING, PaymentStatus.PROCESSING] } } });
+          const refundRecord = refund ?? await tx.refund.create({ data: { orderId: order.id, amountPaise: order.totalPaise, status: PaymentStatus.PENDING, reason: 'Out of stock after payment capture' } });
           await tx.order.update({ where: { id: order.id }, data: { paymentStatus: PaymentStatus.FAILED, status: OrderStatus.FAILED_OUT_OF_STOCK, statusHistory: { create: { from: order.status, to: OrderStatus.FAILED_OUT_OF_STOCK, note: 'Payment captured after stock was exhausted' } } } });
-          outOfStock = { orderId: order.id, userId: order.userId, totalPaise: order.totalPaise };
+          outOfStock = { orderId: order.id, userId: order.userId, refundId: refundRecord.id, totalPaise: order.totalPaise };
         }
       }
     } else if (event === 'payment.failed') {
@@ -269,7 +267,7 @@ export async function processWebhook(eventId: string, event: string, payload: Re
       const refundId = String(refundEntity?.id ?? '');
       const refund = await tx.refund.findUnique({ where: { razorpayRefundId: refundId } });
       if (refund) {
-        await tx.refund.update({ where: { id: refund.id }, data: { status: PaymentStatus.REFUNDED } });
+        await tx.refund.update({ where: { id: refund.id }, data: { status: PaymentStatus.PROCESSED } });
         await tx.order.update({ where: { id: refund.orderId }, data: { paymentStatus: PaymentStatus.REFUNDED } });
       }
     }
@@ -282,6 +280,7 @@ export async function processWebhook(eventId: string, event: string, payload: Re
     if (result.outOfStock) {
       const order = await prisma.order.findUnique({ where: { id: result.outOfStock.orderId }, include: { items: true, user: true } });
       if (order) {
+        await enqueueOutOfStockRefund({ refundId: result.outOfStock.refundId });
         await enqueueOutOfStockPaymentNotice({ orderId: order.id, userId: order.userId });
         await publishStockUpdates(order.items.map((item) => item.variantId));
         emitOrderStatusUpdated(order.userId, { orderId: order.id, status: order.status });
@@ -349,4 +348,35 @@ export async function refundOrder(orderId: string, amountPaise: number | undefin
   if (amount <= 0 || amount > order.totalPaise) throw new AppError(400, 'Invalid refund amount', 'REFUND_AMOUNT_INVALID');
   const refund = await getRazorpay().payments.refund(order.payment.razorpayPaymentId, { amount, notes: { reason: reason ?? 'Admin refund' } });
   return prisma.refund.create({ data: { orderId, razorpayRefundId: refund.id, amountPaise: amount, status: PaymentStatus.PENDING, reason } });
+}
+
+export async function processOutOfStockRefund(refundId: string): Promise<void> {
+  const claim = await prisma.$transaction(async (tx) => {
+    const refund = await tx.refund.findUnique({ where: { id: refundId }, include: { order: { include: { payment: true } } } });
+    if (!refund || refund.razorpayRefundId || refund.status === PaymentStatus.PROCESSED) return null;
+    const claimed = await tx.refund.updateMany({
+      where: { id: refundId, status: PaymentStatus.PENDING, razorpayRefundId: null },
+      data: { status: PaymentStatus.PROCESSING },
+    });
+    return claimed.count === 1 ? refund : null;
+  });
+  if (!claim) return;
+  try {
+    const paymentId = claim.order.payment?.razorpayPaymentId;
+    if (!paymentId) throw new AppError(409, 'Captured payment is missing a Razorpay payment ID', 'REFUND_PAYMENT_ID_MISSING');
+    const receipt = `refund_${claim.id}`;
+    const razorpay = getRazorpay();
+    const existing = await razorpay.payments.fetchMultipleRefund(paymentId);
+    const alreadyCreated = existing.items.find((item) => item.receipt === receipt);
+    const refund = alreadyCreated ?? await razorpay.payments.refund(paymentId, {
+      amount: claim.amountPaise,
+      receipt,
+      notes: { reason: claim.reason ?? 'Order failed because stock was unavailable', refundRecordId: claim.id },
+    });
+    await prisma.refund.update({ where: { id: claim.id }, data: { razorpayRefundId: refund.id, status: refund.status === 'processed' ? PaymentStatus.PROCESSED : PaymentStatus.PENDING } });
+  } catch (error) {
+    await prisma.refund.update({ where: { id: claim.id }, data: { status: PaymentStatus.PENDING } });
+    logger.error('out_of_stock_refund_failed', { refundId, error });
+    throw error;
+  }
 }

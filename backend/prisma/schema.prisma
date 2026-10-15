@@ -32,6 +32,8 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+  PROCESSED
+  PROCESSING
 }
 
 enum PaymentMethod {
@@ -339,6 +341,7 @@ model Refund {
   order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([orderId, status])
 }
 
 model ReturnRequest {

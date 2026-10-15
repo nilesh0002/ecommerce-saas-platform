@@ -3,6 +3,7 @@ import { env } from '../config/env';
 import { prisma } from '../config/prisma';
 import { sendOrderConfirmationEmail, sendLowStockAlertEmail, sendAbandonedCartEmail, sendOutOfStockPaymentEmail } from '../utils/mailer';
 import { processPendingOrderCleanup } from '../modules/orders/service';
+import { processOutOfStockRefund } from '../modules/orders/service';
 
 const connection = { url: env.REDIS_URL };
 
@@ -37,9 +38,14 @@ async function processPendingOrders(): Promise<void> {
   await processPendingOrderCleanup();
 }
 
+async function processRefund(job: Job<{ refundId: string }>): Promise<void> {
+  await processOutOfStockRefund(job.data.refundId);
+}
+
 export const workers = [
   new Worker('email', processEmail, { connection }),
   new Worker('low-stock', processLowStock, { connection }),
   new Worker('abandoned-cart', processAbandonedCart, { connection }),
   new Worker('pending-order-cleanup', processPendingOrders, { connection }),
+  new Worker('refund', processRefund, { connection }),
 ];
