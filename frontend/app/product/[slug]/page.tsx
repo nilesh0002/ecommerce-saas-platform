@@ -10,10 +10,11 @@ export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: p, isLoading, error } = useQuery({ queryKey: ['product', slug], queryFn: () => api<any>(`/catalog/public/products/${slug}`) });
   const { data: wishlist } = useQuery({ queryKey: ['wishlist'], queryFn: () => api<any>('/commerce/wishlist'), retry: false });
+  const v = p?.variants?.[0];
+  const savedLocal = useStore(s => v ? s.wishlist.includes(v.id) : false);
   if (isLoading) return <Shell><div className="container py-24 text-center">Loading product…</div></Shell>;
   if (error || !p) return <Shell><ErrorState /></Shell>;
-  const v = p.variants?.[0];
-  const saved = useStore(s => v ? s.wishlist.includes(v.id) : false) || Boolean(v && (wishlist?.items || wishlist || []).some((item: any) => item.variantId === v.id));
+  const saved = savedLocal || Boolean(v && (wishlist?.items || wishlist || []).some((item: any) => item.variantId === v.id));
   async function save() {
     if (!v) return;
     try {
