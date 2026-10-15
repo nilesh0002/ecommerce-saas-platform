@@ -1,92 +1,87 @@
-# 🚀 Deployment Guide
+# Deployment guide
 
-## Backend Deployment Options
+## Production architecture
 
-### Option 1: Render (Recommended)
-1. **Create Render Account**: https://render.com
-2. **Connect GitHub**: Link your repository
-3. **Create Web Service**:
-   - Build Command: `cd backend && npm install`
-   - Start Command: `cd backend && npm start`
-   - Environment: Node.js
-
-### Option 2: Railway
-1. **Create Railway Account**: https://railway.app
-2. **Deploy from GitHub**: Connect repository
-3. **Set Root Directory**: `/backend`
-
-### Option 3: Vercel (Serverless)
-1. **Install Vercel CLI**: `npm i -g vercel`
-2. **Deploy**: `cd backend && vercel`
-
-## Environment Variables Required
-
-```env
-DATABASE_URL=postgresql://user:pass@host:port/database
-JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters
-PORT=5000
-NODE_ENV=production
-
-# Razorpay
-RAZORPAY_KEY_ID=rzp_live_your_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_secret_key
-RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-
-# Cloudflare R2
-R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
-R2_ACCESS_KEY_ID=your_access_key_id
-R2_SECRET_ACCESS_KEY=your_secret_access_key
-R2_BUCKET_NAME=ecommerce-images
-R2_PUBLIC_URL=https://your-custom-domain.com
-
-# Email
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-16-character-app-password
-ADMIN_EMAIL=admin@yourplatform.com
+```text
+Browser -> Nginx -> frontend:3000
+                  -> backend:5000 -> PostgreSQL
+                                  -> Redis/BullMQ
 ```
 
-## Database Setup (Supabase)
+Build and run the two workspace applications from the repository root.
+Production secrets must be supplied by the deployment platform, not committed
+to the repository.
 
-1. **Create Supabase Project**: https://supabase.com
-2. **Run SQL Migrations**:
-   ```sql
-   -- Execute in order:
-   -- 1. database/schema.sql
-   -- 2. database/ecommerce-schema.sql
-   ```
-3. **Copy Connection String** to `DATABASE_URL`
+## Required backend variables
 
-## Frontend Deployment (Vercel)
+Copy `.env.example` to a secret manager or backend environment configuration.
+At minimum configure:
 
-1. **Create Vercel Account**: https://vercel.com
-2. **Import Project**: Connect GitHub repository
-3. **Set Framework**: React
-4. **Root Directory**: `/frontend`
-5. **Environment Variables**:
-   ```env
-   REACT_APP_API_URL=https://your-backend-url.onrender.com
-   REACT_APP_RAZORPAY_KEY_ID=rzp_live_your_key_id
-   ```
+- `DATABASE_URL`
+- `REDIS_URL`
+- `FRONTEND_URL`
+- `CORS_ORIGINS`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- Razorpay variables for online payments
+- SMTP variables for email delivery
+- Cloudinary variables for image uploads
 
-## Post-Deployment Steps
+`JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must each be at least 32
+characters and must be different in production.
 
-1. **Test API Endpoints**: Use Postman/Thunder Client
-2. **Configure Razorpay Webhooks**: Point to `https://your-backend-url/api/webhook/razorpay`
-3. **Set up Custom Domains** (Optional)
-4. **Configure CORS** for your frontend domain
+## Build and migrate
 
-## Quick Deploy Commands
-
-```bash
-# Push to GitHub
-git remote add origin https://github.com/yourusername/hardware-ecommerce-saas.git
-git branch -M main
-git push -u origin main
-
-# Deploy backend to Render
-# (Use Render dashboard to connect GitHub)
-
-# Deploy frontend to Vercel
-cd frontend
-npx vercel --prod
+```powershell
+npm ci
+npm run db:generate
+npm run db:migrate --workspace backend -- --name production
+npm run build
 ```
+
+Run the seed only for a new development/staging database:
+
+```powershell
+npm run db:seed
+```
+
+## Process commands
+
+```powershell
+npm run start --workspace backend
+npm run start --workspace frontend
+```
+
+The backend starts from `backend/dist/src/server.js`. The frontend starts
+from the Next.js production build.
+
+## Docker Compose
+
+`docker-compose.yml` is intended for local PostgreSQL and Redis. For
+production, use managed PostgreSQL/Redis or an orchestrator with persistent
+volumes and backups.
+
+## Nginx and HTTPS
+
+Terminate TLS at Nginx and proxy:
+
+- `/api/` and `/socket.io/` to the backend
+- all other requests to the Next.js frontend
+
+Use a WebSocket-enabled proxy for Socket.io and configure Razorpay's webhook
+URL as:
+
+```text
+https://your-domain.example/api/v1/payments/webhook/razorpay
+```
+
+## Operational checklist
+
+- Configure a restricted `CORS_ORIGINS` allowlist.
+- Configure Razorpay webhook signing secret.
+- Run Prisma migrations before starting the backend.
+- Run one backend process with BullMQ workers per worker deployment strategy.
+- Set up database backups and Redis persistence where required.
+- Configure Sentry with `SENTRY_DSN`.
+- Verify `/health`, login, checkout, webhook delivery, invoice download, and
+  Socket.io connections after deployment.
