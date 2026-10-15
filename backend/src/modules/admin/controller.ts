@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { OrderStatus, Prisma } from '@prisma/client';
 import * as service from './service';
+import { escapeCsvCell } from '../../utils/csv';
 
 const id = (req: Request) => String(req.params.id || '');
 const page = (req: Request) => Math.max(1, Number(req.query.page || 1));
@@ -19,7 +20,6 @@ export async function updateBanner(req: Request, res: Response) { res.json({ suc
 export async function deleteBanner(req: Request, res: Response) { res.json({ success: true, data: await service.deleteBanner(id(req)) }); }
 export async function report(req: Request, res: Response) {
   const result = await service.report((String(req.query.type || 'orders') as 'orders' | 'customers' | 'products'));
-  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const csv = [result.headers, ...result.rows.map((row) => result.headers.map((header) => escape((row as Record<string, unknown>)[header])))] .map((row) => row.join(',')).join('\n');
+  const csv = [result.headers, ...result.rows.map((row) => result.headers.map((header) => escapeCsvCell((row as Record<string, unknown>)[header])))] .map((row) => row.join(',')).join('\n');
   res.setHeader('Content-Type', 'text/csv'); res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`); res.send(csv);
 }

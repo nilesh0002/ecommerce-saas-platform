@@ -2,8 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 import { env } from '../config/env';
-import { prisma } from '../config/prisma';
 import { AppError } from '../utils/errors';
+import { getCurrentUser, invalidateCurrentUser } from '../security/current-user';
+import { toAuthUser } from '../security/role-policy';
 
 export interface AuthUser {
   id: string;
@@ -19,13 +20,15 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     const token = req.cookies?.accessToken;
     if (!token) throw new AppError(401, 'Authentication required', 'AUTH_REQUIRED');
     const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload & AuthUser;
-    if (!payload.id || !payload.email || !payload.role) throw new AppError(401, 'Invalid access token', 'INVALID_TOKEN');
-    req.user = { id: payload.id, email: payload.email, role: payload.role };
+    if (!payload.id || !payload.email) throw new AppError(401, 'Invalid access token', 'INVALID_TOKEN');
+    const user = await getCurrentUser(payload.id);
+    if (!user || !user.isActive) throw new AppError(401, 'Account is inactive', 'ACCOUNT_INACTIVE');
+    req.user = toAuthUser(user);
     next();
   } catch (error) {
     next(error instanceof AppError ? error : new AppError(401, 'Invalid or expired access token', 'INVALID_TOKEN'));
@@ -46,8 +49,4 @@ export function authorize(...roles: Role[]) {
   };
 }
 
-export async function loadCurrentUser(req: Request): Promise<void> {
-  if (!req.user) return;
-  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { isActive: true } });
-  if (!user?.isActive) throw new AppError(401, 'Account is inactive', 'ACCOUNT_INACTIVE');
-}
+export const invalidateAuthenticatedUser = invalidateCurrentUser;

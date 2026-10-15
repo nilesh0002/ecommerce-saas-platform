@@ -3,7 +3,10 @@ import rateLimit from 'express-rate-limit';
 
 export const sanitizeValue = (value: unknown): unknown => {
   if (typeof value === 'string') {
-    return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
+    return Array.from(value).filter((character) => {
+      const code = character.charCodeAt(0);
+      return !(code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31) || code === 127);
+    }).join('').trim();
   }
   if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value && typeof value === 'object') {
