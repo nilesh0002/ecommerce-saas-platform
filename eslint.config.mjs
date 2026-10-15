@@ -8,6 +8,7 @@ export default [
       '**/dist/**',
       '**/.next/**',
       '**/node_modules/**',
+      '**/next-env.d.ts',
       '**/prisma/migrations/**',
       '**/frontend/src/**',
     ],

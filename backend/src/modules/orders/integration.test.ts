@@ -6,6 +6,7 @@ const enabled = process.env.RUN_INTEGRATION_TESTS === 'true';
 test.after(async () => {
   if (!enabled) return;
   const { prisma } = await import('../../config/prisma');
+  const { redis } = await import('../../config/redis');
   const { emailQueue, refundQueue, lowStockQueue, abandonedCartQueue, pendingOrderCleanupQueue, notificationQueue } = await import('../../jobs/queues');
   await Promise.all([
     emailQueue.close(),
@@ -16,6 +17,7 @@ test.after(async () => {
     notificationQueue.close(),
     prisma.$disconnect(),
   ]);
+  await redis.quit();
 });
 
 test('concurrent captured webhooks deduct stock once and claim one event', { skip: !enabled }, async () => {
