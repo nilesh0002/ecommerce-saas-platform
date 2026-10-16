@@ -6,6 +6,7 @@ import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { generateOtp, hashToken, randomToken } from '../../utils/crypto';
 import { sendOtpEmail, sendPasswordResetEmail } from '../../utils/mailer';
+import { revokeUserAccess } from '../../sockets';
 
 const accessOptions: SignOptions = { expiresIn: env.JWT_ACCESS_EXPIRES_IN as SignOptions['expiresIn'] };
 
@@ -150,4 +151,6 @@ export async function resetPassword(token: string, password: string): Promise<vo
     prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(password, 12), resetTokenHash: null, resetTokenExpiresAt: null } }),
     prisma.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } }),
   ]);
+  await revokeUserAccess(user.id);
 }
+

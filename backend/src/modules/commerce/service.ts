@@ -219,7 +219,7 @@ export async function calculateCheckout(userId: string, addressId: string, coupo
   const discount = couponCode ? await validateCoupon(couponCode, userId, cart.subtotalPaise) : null;
   const discountedSubtotal = cart.subtotalPaise - (discount?.discountPaise ?? 0);
   const shippingPaise = discountedSubtotal >= env.FREE_SHIPPING_THRESHOLD_PAISE ? 0 : env.SHIPPING_FLAT_RATE_PAISE;
-  const taxPaise = Math.floor(discountedSubtotal * env.TAX_RATE);
+  const taxPaise = Math.round(discountedSubtotal * env.TAX_RATE);
   const totalPaise = discountedSubtotal + taxPaise + shippingPaise;
   return {
     address,
