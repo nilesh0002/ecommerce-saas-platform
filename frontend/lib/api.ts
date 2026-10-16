@@ -1,4 +1,3 @@
-/* eslint-disable */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 type Options = RequestInit & { auth?: boolean };
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
