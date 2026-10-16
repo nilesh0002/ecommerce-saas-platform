@@ -1,16 +1,3 @@
 {
-  "buildCommand": "npm ci && npm run build",
-  "devCommand": "npm start",
-  "installCommand": "npm ci",
-  "framework": "create-react-app",
-  "outputDirectory": "build",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "env": {
-    "REACT_APP_API_URL": "https://hardware-store-api.onrender.com"
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
