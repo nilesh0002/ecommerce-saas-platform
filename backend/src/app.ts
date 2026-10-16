@@ -17,9 +17,14 @@ import { asyncHandler } from './utils/asyncHandler';
 import { errorHandler } from './middlewares/errorHandler';
 import { apiLimiter, sanitizeInput } from './middlewares/security';
 import { logger } from './config/logger';
+import { prisma } from './config/prisma';
+import { redis } from './config/redis';
 
 export const app = express();
 initializeSentry();
+
+// Enable trust proxy for reverse proxies (Render, Cloudflare, Nginx)
+app.set('trust proxy', 1);
 
 app.use(helmet());
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
@@ -40,9 +45,49 @@ app.use((req, res, next) => {
 });
 app.use(apiLimiter);
 
-app.get('/health', (_req, res) => {
-  res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
-});
+// Comprehensive health endpoint checking DB and Redis
+const healthCheck = async (_req: express.Request, res: express.Response) => {
+  let dbStatus: 'ok' | 'error' = 'ok';
+  let redisStatus: 'ok' | 'error' = 'ok';
+  let dbError: string | undefined;
+  let redisError: string | undefined;
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (err) {
+    dbStatus = 'error';
+    dbError = err instanceof Error ? err.message : 'Database connection error';
+  }
+
+  try {
+    const pingRes = await redis.ping();
+    if (pingRes !== 'PONG') {
+      redisStatus = 'error';
+      redisError = `Unexpected ping response: ${pingRes}`;
+    }
+  } catch (err) {
+    redisStatus = 'error';
+    redisError = err instanceof Error ? err.message : 'Redis connection error';
+  }
+
+  const isHealthy = dbStatus === 'ok' && redisStatus === 'ok';
+  res.status(isHealthy ? 200 : 503).json({
+    success: isHealthy,
+    data: {
+      status: isHealthy ? 'healthy' : 'degraded',
+      checks: {
+        database: { status: dbStatus, ...(dbError ? { error: dbError } : {}) },
+        redis: { status: redisStatus, ...(redisError ? { error: redisError } : {}) },
+      },
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+app.get('/api/health', asyncHandler(healthCheck));
+app.get('/health', asyncHandler(healthCheck));
+app.get('/api/v1/health', asyncHandler(healthCheck));
 app.post('/api/v1/payments/webhook/razorpay', express.raw({ type: 'application/json' }), asyncHandler(razorpayWebhook));
 app.use(express.json({ limit: '1mb' }));
 app.use(sanitizeInput);

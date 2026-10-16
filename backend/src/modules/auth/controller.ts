@@ -3,15 +3,10 @@ import { z } from 'zod';
 import * as service from './service';
 import { forgotPasswordSchema, loginSchema, otpSchema, registerSchema, resetPasswordSchema } from './validation';
 import { AppError } from '../../utils/errors';
-
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-};
+import { getAuthCookieOptions } from '../../config/cookies';
 
 function setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }): void {
+  const cookieOptions = getAuthCookieOptions();
   res.cookie('accessToken', tokens.accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
   res.cookie('refreshToken', tokens.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 }
@@ -49,6 +44,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 
 export async function logout(req: Request, res: Response): Promise<void> {
   if (req.cookies?.refreshToken) await service.revokeRefreshToken(req.cookies.refreshToken);
+  const cookieOptions = getAuthCookieOptions();
   res.clearCookie('accessToken', cookieOptions);
   res.clearCookie('refreshToken', cookieOptions);
   res.json({ success: true, data: { message: 'Logged out successfully' } });
