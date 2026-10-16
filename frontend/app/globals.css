@@ -1,8 +1,129 @@
 @import 'tailwindcss';
-:root { --ink:#17211b; --muted:#68736c; --cream:#f7f5ef; --sage:#dce8dc; --accent:#d46a45; }
-* { box-sizing:border-box; }
-body { margin:0; background:var(--cream); color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
-a { color:inherit; text-decoration:none; }
-button,input,select,textarea { font:inherit; }
-.container { width:min(1180px,calc(100% - 2.5rem)); margin:auto; }
-.serif { font-family:Georgia,serif; }
+
+@layer base {
+  :root {
+    --background: #fbfaf8;
+    --foreground: #0f172a;
+    --muted: #475569;
+    --muted-light: #64748b;
+    --accent: #c25e38;
+    --accent-hover: #a84b29;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --border: #e2e8f0;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Safe base reset that does NOT override Tailwind utility colors */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* When utility classes like text-white or text-black are applied to links, enforce them */
+  a.text-white, a .text-white, .text-white {
+    color: #ffffff !important;
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+}
+
+/* Container */
+.container {
+  width: min(1200px, calc(100% - 2.5rem));
+  margin-inline: auto;
+}
+
+/* Serif font style for headings */
+.serif {
+  font-family: "Georgia", "Cambria", "Times New Roman", serif;
+  letter-spacing: -0.02em;
+}
+
+/* Professional E-commerce Button Utilities */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #c25e38 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px 0 rgba(194, 94, 56, 0.2);
+  text-decoration: none;
+}
+
+.btn-accent:hover {
+  background-color: #a84b29 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-outline:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.08);
+}

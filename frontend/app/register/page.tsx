@@ -173,7 +173,8 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-4 flex items-center justify-center rounded-full bg-[#17211b] py-3.5 text-sm font-bold text-white shadow-xs hover:bg-[#2b3a31] disabled:opacity-50 transition-all hover:scale-101 cursor-pointer"
+              className="mt-4 flex items-center justify-center rounded-full py-3.5 text-sm font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all cursor-pointer"
+              style={{ color: '#ffffff', backgroundColor: '#0f172a' }}
             >
               {loading ? (
                 <div className="flex items-center gap-2">

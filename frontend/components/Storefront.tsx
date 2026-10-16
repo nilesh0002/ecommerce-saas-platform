@@ -229,16 +229,17 @@ export function Header() {
               </div>
             ) : (
               /* Guest: Prominent Sign In and Register Buttons */
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="rounded-full px-4 py-2 text-xs font-semibold text-[#17211b] hover:bg-black/5 transition-colors"
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 hover:border-slate-400 hover:bg-slate-50 transition-all shadow-xs"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="rounded-full bg-[#17211b] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#2b3a31] transition-all hover:scale-102"
+                  className="rounded-full px-4 py-2 text-xs font-bold shadow-xs transition-all hover:opacity-90 inline-flex items-center justify-center"
+                  style={{ color: '#ffffff', backgroundColor: '#0f172a' }}
                 >
                   Register
                 </Link>
@@ -248,7 +249,7 @@ export function Header() {
             {/* Shopping Cart Button */}
             <Link
               href="/cart"
-              className="relative flex items-center justify-center rounded-full bg-white border border-black/15 p-2.5 hover:border-black/30 hover:shadow-xs transition-all"
+              className="relative flex items-center justify-center rounded-full bg-white border border-slate-300 p-2.5 text-slate-800 hover:border-slate-400 hover:shadow-xs transition-all"
               aria-label="Shopping Cart"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -257,7 +258,10 @@ export function Header() {
                 <path d="M16 10a4 4 0 0 1-8 0"></path>
               </svg>
               {count > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d46a45] px-1 text-[11px] font-bold text-white shadow-xs">
+                <span
+                  className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-xs"
+                  style={{ color: '#ffffff', backgroundColor: '#c25e38' }}
+                >
                   {count}
                 </span>
               )}
@@ -344,7 +348,8 @@ export function Header() {
                     <Link
                       href="/register"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="rounded-full bg-[#17211b] py-2.5 text-center font-bold text-white"
+                      className="rounded-full py-2.5 text-center font-bold shadow-xs"
+                      style={{ color: '#ffffff', backgroundColor: '#0f172a' }}
                     >
                       Create Account
                     </Link>
