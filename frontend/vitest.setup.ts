@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { server } from './mocks/server';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 beforeAll(() => (server.listen as any)({ onUnhandledRequest: 'bypass' }));
 
 afterEach(() => {

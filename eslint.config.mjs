@@ -18,7 +18,7 @@ export default [
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsParser,
-      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', Buffer: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', fetch: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly' },
     },
     plugins: { '@typescript-eslint': tsPlugin },
     rules: {
