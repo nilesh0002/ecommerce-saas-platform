@@ -3,6 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "description": "Next.js storefront and administration UI",
+  "allowScripts": {
+    "esbuild": true,
+    "unrs-resolver": true
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

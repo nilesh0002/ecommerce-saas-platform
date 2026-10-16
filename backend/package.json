@@ -4,6 +4,11 @@
   "private": true,
   "description": "Express REST API for the e-commerce platform",
   "main": "dist/src/server.js",
+  "allowScripts": {
+    "bcrypt": true,
+    "prisma": true,
+    "@prisma/client": true
+  },
   "scripts": {
     "postinstall": "prisma generate",
     "build": "prisma generate && tsc",
