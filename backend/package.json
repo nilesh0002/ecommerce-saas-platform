@@ -5,7 +5,8 @@
   "description": "Express REST API for the e-commerce platform",
   "main": "dist/src/server.js",
   "scripts": {
-    "build": "tsc",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && tsc",
     "start": "node dist/src/server.js",
     "dev": "tsx watch src/server.ts",
     "lint": "eslint \"src/**/*.ts\"",
