@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { app } from './app';
 import { redis } from './config/redis';
 import { prisma } from './config/prisma';
+import { closeAllQueues } from './jobs/queues';
 
 describe('Express application configuration in app.ts', () => {
   after(async () => {
+    await closeAllQueues();
     await redis.quit();
     await prisma.$disconnect();
   });

@@ -90,3 +90,15 @@ export async function schedulePendingOrderCleanup(): Promise<void> {
   });
 }
 
+export async function closeAllQueues(): Promise<void> {
+  await Promise.allSettled([
+    emailQueue.close(),
+    notificationQueue.close(),
+    lowStockQueue.close(),
+    abandonedCartQueue.close(),
+    pendingOrderCleanupQueue.close(),
+    refundQueue.close(),
+  ]);
+}
+
+
