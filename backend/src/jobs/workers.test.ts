@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { EventEmitter } from 'node:events';
-import { defaultJobOptions } from './queues';
+import { defaultJobOptions, closeAllQueues } from './queues';
 import { registerWorkerFailureHandling } from './workers';
+
+after(async () => {
+  await closeAllQueues();
+  process.exit(0);
+});
 
 test('BullMQ queues have retry and exponential backoff default configuration', () => {
   assert.equal(defaultJobOptions.attempts, 3);

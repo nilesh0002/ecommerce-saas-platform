@@ -86,27 +86,32 @@ test('out-of-stock capture creates one refund intent and queues notification job
       },
     },
   } as never);
-  await processWebhook(`out_event_${suffix}`, 'payment.captured', { payload: { payment: { entity: { order_id: order.razorpayOrderId, id: `out_pay_${suffix}` } } } });
-  const failed = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, include: { refunds: true } });
-  assert.equal(failed.status, 'FAILED_OUT_OF_STOCK');
-  assert.equal(failed.refunds.length, 1);
-  const refundRecord = failed.refunds[0];
-  assert.ok(refundRecord);
-  assert.equal(refundRecord.status, 'PENDING');
-  assert.equal((await prisma.inventory.findUniqueOrThrow({ where: { variantId: variant.id } })).quantity, 0);
-  assert.ok(await emailQueue.getJob(`out-of-stock-payment-${order.id}`));
-  const refundJob = await refundQueue.getJob(`out-of-stock-refund-${refundRecord.id}`);
-  assert.ok(refundJob);
-  assert.equal(refundJob.opts.attempts, 5);
-  assert.deepEqual(refundJob.opts.backoff, { type: 'exponential', delay: 5000 });
-  await assert.rejects(() => processOutOfStockRefund(refundRecord.id), /temporary Razorpay outage/);
-  assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).status, 'PENDING');
-  await processOutOfStockRefund(refundRecord.id);
-  await processOutOfStockRefund(refundRecord.id);
-  assert.equal(refundCalls.length, 2);
-  assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).razorpayRefundId, `rfnd_${suffix}`);
-  await processWebhook(`refund_event_${suffix}`, 'refund.processed', { payload: { refund: { entity: { id: `rfnd_${suffix}` } } } });
-  assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).status, 'PROCESSED');
+  await refundQueue.pause();
+  try {
+    await processWebhook(`out_event_${suffix}`, 'payment.captured', { payload: { payment: { entity: { order_id: order.razorpayOrderId, id: `out_pay_${suffix}` } } } });
+    const failed = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, include: { refunds: true } });
+    assert.equal(failed.status, 'FAILED_OUT_OF_STOCK');
+    assert.equal(failed.refunds.length, 1);
+    const refundRecord = failed.refunds[0];
+    assert.ok(refundRecord);
+    assert.equal(refundRecord.status, 'PENDING');
+    assert.equal((await prisma.inventory.findUniqueOrThrow({ where: { variantId: variant.id } })).quantity, 0);
+    assert.ok(await emailQueue.getJob(`out-of-stock-payment-${order.id}`));
+    const refundJob = await refundQueue.getJob(`out-of-stock-refund-${refundRecord.id}`);
+    assert.ok(refundJob);
+    assert.equal(refundJob.opts.attempts, 5);
+    assert.deepEqual(refundJob.opts.backoff, { type: 'exponential', delay: 5000 });
+    await assert.rejects(() => processOutOfStockRefund(refundRecord.id), /temporary Razorpay outage/);
+    assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).status, 'PENDING');
+    await processOutOfStockRefund(refundRecord.id);
+    await processOutOfStockRefund(refundRecord.id);
+    assert.equal(refundCalls.length, 2);
+    assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).razorpayRefundId, `rfnd_${suffix}`);
+    await processWebhook(`refund_event_${suffix}`, 'refund.processed', { payload: { refund: { entity: { id: `rfnd_${suffix}` } } } });
+    assert.equal((await prisma.refund.findUniqueOrThrow({ where: { id: refundRecord.id } })).status, 'PROCESSED');
+  } finally {
+    await refundQueue.resume();
+  }
   setRazorpayForTests(undefined);
   await prisma.order.delete({ where: { id: order.id } });
   await prisma.product.delete({ where: { id: product.id } });
