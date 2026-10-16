@@ -81,6 +81,6 @@ export function createWorkers(): Worker[] {
   ];
 }
 
-export const workers: Worker[] = process.env.NODE_ENV === 'test' ? [] : createWorkers();
+export const workers: Worker[] = process.env.NODE_ENV === 'test' || process.env.RUN_INTEGRATION_TESTS === 'true' ? [] : createWorkers();
 
 

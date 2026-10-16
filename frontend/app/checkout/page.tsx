@@ -77,8 +77,8 @@ export default function Checkout() {
         body: JSON.stringify({ addressId, paymentMethod: method }),
       });
 
-      const order = result.order;
-      const razorpayOrder = result.razorpay;
+      const order = result?.order || result;
+      const razorpayOrder = result?.razorpay;
 
       if (method === 'RAZORPAY' && process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && razorpayOrder) {
         const Razorpay = (window as any).Razorpay;

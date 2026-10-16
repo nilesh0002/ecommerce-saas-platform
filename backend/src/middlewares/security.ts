@@ -27,7 +27,7 @@ export const apiLimiter = rateLimit({
   limit: 300,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skip: (req) => req.path === '/health' || req.path.includes('/payments/webhook'),
+  skip: (req) => process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true' || req.path === '/health' || req.path.includes('/payments/webhook'),
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
 });
 

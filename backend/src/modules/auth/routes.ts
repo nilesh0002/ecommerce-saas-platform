@@ -6,7 +6,12 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middlewares/auth';
 
 const router = Router();
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8' });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-8',
+  skip: () => process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true',
+});
 
 router.post('/register', authLimiter, controller.validateBody(registerSchema), asyncHandler(controller.register));
 router.post('/login', authLimiter, controller.validateBody(loginSchema), asyncHandler(controller.login));

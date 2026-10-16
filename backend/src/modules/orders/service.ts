@@ -273,7 +273,7 @@ export async function processWebhook(eventId: string, event: string, payload: Re
     }
       await tx.webhookEvent.update({ where: { id: eventRecord.id }, data: { processedAt: new Date() } });
       return { outOfStock };
-    }));
+    }, { maxWait: 10000, timeout: 20000 }));
   if (claimed.duplicate) return { duplicate: true };
   const result = claimed.result;
   if (!result) throw new AppError(500, 'Webhook processing did not return a result', 'WEBHOOK_PROCESSING_FAILED');
@@ -359,7 +359,7 @@ export async function processOutOfStockRefund(refundId: string): Promise<void> {
       data: { status: PaymentStatus.PROCESSING },
     });
     return claimed.count === 1 ? refund : null;
-  });
+  }, { maxWait: 10000, timeout: 20000 });
   if (!claim) return;
   try {
     const paymentId = claim.order.payment?.razorpayPaymentId;
