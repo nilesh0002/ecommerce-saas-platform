@@ -82,7 +82,10 @@ jobs:
       - name: Push schema to test database
         run: npx prisma db push --schema=backend/prisma/schema.prisma
 
-      - name: Run backend unit and integration tests
+      - name: Run backend unit tests
+        run: npm run test --workspace backend
+
+      - name: Run backend integration tests
         run: npm run test:integration
 
       - name: Run frontend tests
