@@ -182,6 +182,7 @@ test('concurrent checkouts using a coupon with usageLimit = 1 only permit one re
   await prisma.coupon.delete({ where: { id: coupon.id } });
   await prisma.order.deleteMany({ where: { userId: { in: [user1.id, user2.id] } } });
   await prisma.inventory.deleteMany({ where: { variantId: variant.id } });
+  await prisma.cartItem.deleteMany({ where: { cartId: { in: [cart1.id, cart2.id] } } });
   await prisma.productVariant.delete({ where: { id: variant.id } });
   await prisma.product.delete({ where: { id: product.id } });
   await prisma.category.delete({ where: { id: category.id } });
@@ -189,4 +190,3 @@ test('concurrent checkouts using a coupon with usageLimit = 1 only permit one re
   await prisma.cart.deleteMany({ where: { userId: { in: [user1.id, user2.id] } } });
   await prisma.user.deleteMany({ where: { id: { in: [user1.id, user2.id] } } });
 });
-
