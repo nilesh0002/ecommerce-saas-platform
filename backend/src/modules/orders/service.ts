@@ -129,10 +129,41 @@ async function clearCartAndRecordCoupon(
   const cart = await tx.cart.findUnique({ where: { userId } });
   if (cart) await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
   if (couponCode) {
-    const coupon = await tx.coupon.findUnique({ where: { code: couponCode } });
-    if (coupon) {
-      await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } });
+    const coupon = await tx.coupon.findUnique({ where: { code: couponCode.toUpperCase() } });
+    if (!coupon || !coupon.isActive) {
+      throw new AppError(400, 'Coupon is invalid or expired', 'COUPON_INVALID');
+    }
+    const now = new Date();
+    if (coupon.startsAt > now || coupon.expiresAt < now) {
+      throw new AppError(400, 'Coupon is invalid or expired', 'COUPON_INVALID');
+    }
+    const alreadyUsed = await tx.couponUsage.findUnique({
+      where: { couponId_userId: { couponId: coupon.id, userId } },
+    });
+    if (alreadyUsed) {
+      throw new AppError(400, 'Coupon has already been used', 'COUPON_ALREADY_USED');
+    }
+    if (coupon.usageLimit !== null) {
+      const claim = await tx.coupon.updateMany({
+        where: { id: coupon.id, isActive: true, usedCount: { lt: coupon.usageLimit } },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claim.count === 0) {
+        throw new AppError(400, 'Coupon usage limit reached', 'COUPON_LIMIT_REACHED');
+      }
+    } else {
+      await tx.coupon.update({
+        where: { id: coupon.id },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+    try {
       await tx.couponUsage.create({ data: { couponId: coupon.id, userId, orderId } });
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'P2002') {
+        throw new AppError(400, 'Coupon has already been used', 'COUPON_ALREADY_USED');
+      }
+      throw err;
     }
   }
 }
@@ -154,7 +185,9 @@ export async function verifyPayment(userId: string, id: string, input: { razorpa
   }
 
   const expected = crypto.createHmac('sha256', env.RAZORPAY_KEY_SECRET).update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`).digest('hex');
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(input.razorpaySignature))) {
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = typeof input.razorpaySignature === 'string' ? Buffer.from(input.razorpaySignature) : null;
+  if (!signatureBuf || signatureBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
     throw new AppError(400, 'Invalid payment signature', 'PAYMENT_SIGNATURE_INVALID');
   }
   await prisma.payment.update({ where: { orderId: id }, data: { razorpayPaymentId: input.razorpayPaymentId, signature: input.razorpaySignature } });

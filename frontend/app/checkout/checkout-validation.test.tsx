@@ -92,4 +92,28 @@ describe('Checkout Component Form & Validation', () => {
       });
     }
   });
+
+  it('displays accurate price breakdown including subtotal, shipping, and tax from backend quote', async () => {
+    useStore.setState({
+      cart: [
+        {
+          variantId: 'var-1',
+          quantity: 1,
+          variant: { name: 'Test Product', pricePaise: 100000 },
+        },
+      ],
+      wishlist: [],
+    });
+
+    renderWithClient(<Checkout />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Subtotal')).toBeInTheDocument();
+      expect(screen.getByText('GST (Taxes)')).toBeInTheDocument();
+      expect(screen.getByText('Shipping')).toBeInTheDocument();
+      expect(screen.getByText('Total Amount')).toBeInTheDocument();
+      const totalEl = screen.getByTestId('checkout-total');
+      expect(totalEl).toHaveTextContent(/1,279/);
+    });
+  });
 });

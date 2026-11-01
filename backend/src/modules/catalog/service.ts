@@ -44,7 +44,7 @@ async function assertReferences(categoryId: string, brandId?: string | null): Pr
   }
 }
 
-export async function listCategories(includeInactive = true) {
+export async function listCategories(includeInactive = false) {
   return prisma.category.findMany({
     where: includeInactive ? undefined : { isActive: true },
     orderBy: { name: 'asc' },
@@ -68,7 +68,7 @@ export async function deleteCategory(id: string) {
   return prisma.category.update({ where: { id }, data: { isActive: false } });
 }
 
-export async function listBrands(includeInactive = true) {
+export async function listBrands(includeInactive = false) {
   return prisma.brand.findMany({
     where: includeInactive ? undefined : { isActive: true },
     orderBy: { name: 'asc' },
@@ -237,7 +237,11 @@ type ListParams = {
 };
 
 export async function listPublicProducts(params: ListParams) {
-  const conditions: Prisma.Sql[] = [Prisma.sql`p."isActive" = true`];
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`p."isActive" = true`,
+    Prisma.sql`c."isActive" = true`,
+    Prisma.sql`(b.id IS NULL OR b."isActive" = true)`,
+  ];
   if (params.q) conditions.push(Prisma.sql`(p.name ILIKE ${`%${params.q}%`} OR p.description ILIKE ${`%${params.q}%`})`);
   if (params.category) conditions.push(Prisma.sql`c.slug = ${params.category}`);
   if (params.brand) conditions.push(Prisma.sql`b.slug = ${params.brand}`);
@@ -293,7 +297,12 @@ export async function listPublicProducts(params: ListParams) {
 
 export async function getPublicProduct(slug: string) {
   const product = await prisma.product.findFirst({
-    where: { slug, isActive: true },
+    where: {
+      slug,
+      isActive: true,
+      category: { isActive: true },
+      OR: [{ brandId: null }, { brand: { isActive: true } }],
+    },
     include: {
       category: true,
       brand: true,

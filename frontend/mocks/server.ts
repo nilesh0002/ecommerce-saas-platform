@@ -88,6 +88,27 @@ export const handlers = [
       },
     });
   }),
+
+  // Checkout quote calculation handler
+  http.post('*/commerce/checkout/calculate', async ({ request }) => {
+    const body = (await request.json()) as { addressId: string; couponCode?: string };
+    if (!body.addressId) {
+      return HttpResponse.json(
+        { success: false, error: { message: 'Address is required' } },
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({
+      success: true,
+      data: {
+        subtotalPaise: 100000,
+        discountPaise: 0,
+        taxPaise: 18000,
+        shippingPaise: 9900,
+        totalPaise: 127900,
+      },
+    });
+  }),
 ];
 
 export const server = setupServer(...handlers);

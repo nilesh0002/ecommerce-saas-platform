@@ -5,8 +5,9 @@ import {
   productParamSchema, productSchema, slugParamSchema, variantSchema,
 } from './validation';
 
-export async function categories(_req: Request, res: Response) {
-  res.json({ success: true, data: await service.listCategories() });
+export async function categories(req: Request, res: Response) {
+  const includeInactive = req.query.includeInactive === 'true';
+  res.json({ success: true, data: await service.listCategories(includeInactive) });
 }
 export async function createCategory(req: Request, res: Response) {
   res.status(201).json({ success: true, data: await service.createCategory(categorySchema.parse(req.body)) });
@@ -19,8 +20,9 @@ export async function deleteCategory(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   res.json({ success: true, data: await service.deleteCategory(id) });
 }
-export async function brands(_req: Request, res: Response) {
-  res.json({ success: true, data: await service.listBrands() });
+export async function brands(req: Request, res: Response) {
+  const includeInactive = req.query.includeInactive === 'true';
+  res.json({ success: true, data: await service.listBrands(includeInactive) });
 }
 export async function createBrand(req: Request, res: Response) {
   res.status(201).json({ success: true, data: await service.createBrand(brandSchema.parse(req.body)) });

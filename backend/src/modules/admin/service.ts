@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma, Role } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 const orderInclude = {
@@ -13,13 +13,20 @@ export async function analytics(from?: Date, to?: Date) {
     prisma.order.count({ where }),
     prisma.user.count({ where: { role: Role.CUSTOMER, createdAt: { gte: from, lte: to } } }),
     prisma.product.count({ where: { isActive: true } }),
-    prisma.order.aggregate({ where: { ...where, paymentStatus: { in: ['PAID', 'PENDING'] } }, _sum: { totalPaise: true } }),
+    prisma.order.aggregate({ where: { ...where, paymentStatus: PaymentStatus.PAID }, _sum: { totalPaise: true } }),
     prisma.order.findMany({ take: 8, orderBy: { createdAt: 'desc' }, include: orderInclude }),
     prisma.inventory.findMany({ where: { quantity: { lte: 5 } }, take: 10, orderBy: { quantity: 'asc' }, include: { variant: { include: { product: true } } } }),
   ]);
-  const daily = await prisma.order.groupBy({ by: ['createdAt'], where, _sum: { totalPaise: true }, _count: true });
+  const daily = await prisma.order.groupBy({
+    by: ['createdAt'],
+    where: { ...where, paymentStatus: PaymentStatus.PAID },
+    _sum: { totalPaise: true },
+    _count: true,
+  });
   return { cards: { orders, customers, products, revenuePaise: revenue._sum.totalPaise || 0 }, daily, recentOrders, lowStock };
 }
+
+
 
 export async function listCustomers(page = 1, limit = 20, search = '') {
   const where: Prisma.UserWhereInput = { role: Role.CUSTOMER, ...(search ? { OR: [{ email: { contains: search, mode: 'insensitive' } }, { firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } }] } : {}) };

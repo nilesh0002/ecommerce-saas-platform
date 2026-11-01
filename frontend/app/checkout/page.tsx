@@ -40,7 +40,44 @@ export default function Checkout() {
     }
   }, [addresses, addressId]);
 
-  const totalPaise = cart.reduce((a, x) => a + (x.variant?.pricePaise || 0) * x.quantity, 0);
+  const itemsSubtotalPaise = cart.reduce((a, x) => a + (x.variant?.pricePaise || 0) * x.quantity, 0);
+
+  const { data: quote } = useQuery<{
+    subtotalPaise: number;
+    discountPaise: number;
+    taxPaise: number;
+    shippingPaise: number;
+    totalPaise: number;
+  } | null>({
+    queryKey: ['checkout-quote', addressId, cart],
+    queryFn: async () => {
+      if (!addressId || !cart.length) return null;
+      try {
+        return await api<{
+          subtotalPaise: number;
+          discountPaise: number;
+          taxPaise: number;
+          shippingPaise: number;
+          totalPaise: number;
+        }>('/commerce/checkout/calculate', {
+          method: 'POST',
+          body: JSON.stringify({ addressId }),
+        });
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(addressId && cart.length),
+  });
+
+  const subtotalPaise = quote?.subtotalPaise ?? itemsSubtotalPaise;
+  const discountPaise = quote?.discountPaise ?? 0;
+  const discountedSubtotal = subtotalPaise - discountPaise;
+  const estimatedShipping = discountedSubtotal >= 1000000 ? 0 : 9900;
+  const estimatedTax = Math.round(discountedSubtotal * 0.18);
+  const shippingPaise = quote != null ? quote.shippingPaise : estimatedShipping;
+  const taxPaise = quote != null ? quote.taxPaise : estimatedTax;
+  const finalTotalPaise = quote?.totalPaise ?? (discountedSubtotal + taxPaise + shippingPaise);
 
   async function submit() {
     try {
@@ -275,21 +312,29 @@ export default function Checkout() {
             <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-200 pt-3">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-semibold text-slate-900">{money(totalPaise)}</span>
+                <span className="font-semibold text-slate-900">{money(subtotalPaise)}</span>
               </div>
+              {discountPaise > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Discount</span>
+                  <span className="font-semibold">-{money(discountPaise)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Shipping</span>
-                <span className="font-semibold text-emerald-700">FREE</span>
+                <span className={`font-semibold ${shippingPaise === 0 ? 'text-emerald-700' : 'text-slate-900'}`}>
+                  {shippingPaise === 0 ? 'FREE' : money(shippingPaise)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>GST (Taxes)</span>
-                <span className="font-semibold text-slate-900">Included</span>
+                <span className="font-semibold text-slate-900">{money(taxPaise)}</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between text-base font-bold text-slate-900 border-t border-slate-200 pt-3">
               <span>Total Amount</span>
-              <span>{money(totalPaise)}</span>
+              <span data-testid="checkout-total">{money(finalTotalPaise)}</span>
             </div>
 
             <button

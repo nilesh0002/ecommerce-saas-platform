@@ -118,3 +118,75 @@ test('out-of-stock capture creates one refund intent and queues notification job
   await prisma.category.delete({ where: { id: category.id } });
   await prisma.user.delete({ where: { id: user.id } });
 });
+
+test('concurrent checkouts using a coupon with usageLimit = 1 only permit one redemption', { skip: !enabled }, async () => {
+  const { prisma } = await import('../../config/prisma');
+  const { createOrder } = await import('./service');
+  const suffix = Date.now().toString();
+
+  const user1 = await prisma.user.create({
+    data: { email: `user1-${suffix}@example.com`, firstName: 'User1', lastName: 'Test' },
+  });
+  const user2 = await prisma.user.create({
+    data: { email: `user2-${suffix}@example.com`, firstName: 'User2', lastName: 'Test' },
+  });
+
+  const address1 = await prisma.address.create({
+    data: { userId: user1.id, fullName: 'User One', phone: '9999999991', line1: '123 St', city: 'City', state: 'State', postalCode: '123456', country: 'IN' },
+  });
+  const address2 = await prisma.address.create({
+    data: { userId: user2.id, fullName: 'User Two', phone: '9999999992', line1: '456 St', city: 'City', state: 'State', postalCode: '123456', country: 'IN' },
+  });
+
+  const category = await prisma.category.create({ data: { name: `Coupon Cat ${suffix}`, slug: `coupon-cat-${suffix}` } });
+  const product = await prisma.product.create({ data: { name: `Coupon Prod ${suffix}`, slug: `coupon-prod-${suffix}`, categoryId: category.id } });
+  const variant = await prisma.productVariant.create({ data: { productId: product.id, sku: `COUP-SKU-${suffix}`, name: 'Default', pricePaise: 50000 } });
+  await prisma.inventory.create({ data: { variantId: variant.id, quantity: 10 } });
+
+  const cart1 = await prisma.cart.create({ data: { userId: user1.id } });
+  await prisma.cartItem.create({ data: { cartId: cart1.id, variantId: variant.id, quantity: 1 } });
+  const cart2 = await prisma.cart.create({ data: { userId: user2.id } });
+  await prisma.cartItem.create({ data: { cartId: cart2.id, variantId: variant.id, quantity: 1 } });
+
+  const couponCode = `LIMIT1-${suffix}`;
+  const coupon = await prisma.coupon.create({
+    data: {
+      code: couponCode,
+      type: 'FIXED',
+      value: 10000,
+      usageLimit: 1,
+      usedCount: 0,
+      startsAt: new Date(Date.now() - 60000),
+      expiresAt: new Date(Date.now() + 600000),
+    },
+  });
+
+  const results = await Promise.allSettled([
+    createOrder(user1.id, { addressId: address1.id, paymentMethod: 'COD', couponCode }),
+    createOrder(user2.id, { addressId: address2.id, paymentMethod: 'COD', couponCode }),
+  ]);
+
+  const fulfilled = results.filter((r) => r.status === 'fulfilled');
+  const rejected = results.filter((r) => r.status === 'rejected');
+
+  assert.equal(fulfilled.length, 1, 'Exactly one order should succeed');
+  assert.equal(rejected.length, 1, 'Exactly one order should fail due to usage limit');
+
+  const reloadedCoupon = await prisma.coupon.findUniqueOrThrow({ where: { id: coupon.id } });
+  assert.equal(reloadedCoupon.usedCount, 1, 'Coupon usedCount must be exactly 1');
+
+  const usages = await prisma.couponUsage.findMany({ where: { couponId: coupon.id } });
+  assert.equal(usages.length, 1, 'Exactly one CouponUsage record must exist');
+
+  await prisma.couponUsage.deleteMany({ where: { couponId: coupon.id } });
+  await prisma.coupon.delete({ where: { id: coupon.id } });
+  await prisma.order.deleteMany({ where: { userId: { in: [user1.id, user2.id] } } });
+  await prisma.inventory.deleteMany({ where: { variantId: variant.id } });
+  await prisma.productVariant.delete({ where: { id: variant.id } });
+  await prisma.product.delete({ where: { id: product.id } });
+  await prisma.category.delete({ where: { id: category.id } });
+  await prisma.address.deleteMany({ where: { userId: { in: [user1.id, user2.id] } } });
+  await prisma.cart.deleteMany({ where: { userId: { in: [user1.id, user2.id] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [user1.id, user2.id] } } });
+});
+

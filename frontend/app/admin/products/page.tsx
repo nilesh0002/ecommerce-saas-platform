@@ -8,7 +8,7 @@ import { AdminPage, Loading, Table } from '../../../components/AdminShell';
 export default function AdminProducts() {
   const qc = useQueryClient(); const [category, setCategory] = useState({ name: '', slug: '' }); const [product, setProduct] = useState({ name: '', slug: '', description: '', categoryId: '' });
   const products = useQuery({ queryKey: ['admin-products'], queryFn: () => api<any>('/catalog/products?limit=100') });
-  const categories = useQuery({ queryKey: ['categories'], queryFn: () => api<any[]>('/catalog/categories') });
+  const categories = useQuery({ queryKey: ['categories'], queryFn: () => api<any[]>('/catalog/categories?includeInactive=true') });
   const invalidate = () => { qc.invalidateQueries({ queryKey: ['admin-products'] }); qc.invalidateQueries({ queryKey: ['categories'] }); };
   const createCategory = useMutation({ mutationFn: () => api('/catalog/categories', { method: 'POST', body: JSON.stringify(category) }), onSuccess: () => { setCategory({ name: '', slug: '' }); invalidate(); } });
   const createProduct = useMutation({ mutationFn: () => api('/catalog/products', { method: 'POST', body: JSON.stringify(product) }), onSuccess: () => { setProduct({ name: '', slug: '', description: '', categoryId: '' }); invalidate(); } });
