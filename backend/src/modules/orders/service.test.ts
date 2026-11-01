@@ -90,6 +90,7 @@ test('verifyPayment returns 400 PAYMENT_SIGNATURE_INVALID for malformed and inva
     );
 
     // 4. Valid signature
+    assert.ok(env.RAZORPAY_KEY_SECRET);
     const validSig = crypto
       .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
       .update('order_rzp_123|pay_rzp_456')
@@ -113,7 +114,6 @@ test('createOrder rolls back with COUPON_LIMIT_REACHED when atomic coupon usage 
   const { createOrder } = await import('./service');
   const { prisma } = await import('../../config/prisma');
   const { AppError } = await import('../../utils/errors');
-  const commerceService = await import('../commerce/service');
 
   const origAddressFindFirst = prisma.address.findFirst;
   const origCartUpsert = prisma.cart.upsert;
@@ -218,4 +218,3 @@ test.after(async () => {
   await redis.quit();
   await prisma.$disconnect();
 });
-
