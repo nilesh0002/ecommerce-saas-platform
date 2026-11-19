@@ -33,8 +33,10 @@ test('verifyPayment returns 400 PAYMENT_SIGNATURE_INVALID for malformed and inva
 
   const origFindFirst = prisma.order.findFirst;
   const origPaymentUpdate = prisma.payment.update;
+  const origSecret = env.RAZORPAY_KEY_SECRET;
 
   try {
+    (env as any).RAZORPAY_KEY_SECRET = env.RAZORPAY_KEY_SECRET || 'test_razorpay_secret_key';
     (prisma.order as any).findFirst = async () => mockOrder;
     (prisma.payment as any).update = async () => ({ id: 'pay-1' });
 
@@ -103,6 +105,7 @@ test('verifyPayment returns 400 PAYMENT_SIGNATURE_INVALID for malformed and inva
     });
     assert.equal(result.verified, true);
   } finally {
+    (env as any).RAZORPAY_KEY_SECRET = origSecret;
     prisma.order.findFirst = origFindFirst;
     prisma.payment.update = origPaymentUpdate;
   }
