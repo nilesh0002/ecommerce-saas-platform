@@ -1,5 +1,7 @@
 # Single-store e-commerce platform
 
+> Fork repository: https://github.com/Nilesh9801/ecommerce-saas-platform
+
 Production-oriented TypeScript monorepo for a single online store.
 
 ## Repository layout
