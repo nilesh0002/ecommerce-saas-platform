@@ -10,6 +10,7 @@ Production-oriented TypeScript monorepo for a single online store.
 │   ├── prisma/               Schema, migrations, and seed
 │   └── src/
 │       ├── config/           Environment, database, Redis, logging
+│       ├── docs/             OpenAPI specification
 │       ├── jobs/             BullMQ queues and workers
 │       ├── middlewares/      Auth, security, and error handling
 │       ├── modules/          Auth, catalog, commerce, orders, admin
@@ -20,6 +21,10 @@ Production-oriented TypeScript monorepo for a single online store.
 │   ├── app/                  Storefront and admin routes
 │   ├── components/           Shared UI components
 │   └── lib/                 API client and Zustand state
+├── e2e/                     Playwright end-to-end test scenarios
+│   └── helpers/             E2E test utilities and helpers
+├── docs/                    Documentation and verified project assets
+│   └── screenshots/         Milestone scenario verification screenshots
 ├── legacy/                  Archived pre-rebuild JavaScript application
 │   ├── backend/
 │   ├── frontend/
@@ -30,6 +35,8 @@ Production-oriented TypeScript monorepo for a single online store.
 ```
 
 `backend/src` and `frontend/app` are the canonical application sources.
+`e2e/` contains Playwright test scenarios (test reports and artifacts are git-ignored).
+`docs/` holds documentation and intentional milestone scenario assets.
 The `legacy/` tree is retained for reference only and is not part of the
 workspace build or runtime.
 
